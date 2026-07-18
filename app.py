@@ -1,17 +1,10 @@
 import string
 import random
 import sqlite3
-import os
 from flask import Flask, request, redirect, jsonify, render_template
 
 app = Flask(__name__)
-
-# Render wipes the server on restarts. Saving to /data keeps it permanent
-# if we attach a persistent disk. For local testing, it falls back to 'urls.db'
-if os.path.exists('/data'):
-    DB_FILE = '/data/urls.db'
-else:
-    DB_FILE = 'urls.db'
+DB_FILE = 'urls.db'
 
 def init_db():
     with sqlite3.connect(DB_FILE) as conn:
@@ -24,7 +17,7 @@ def init_db():
         ''')
         conn.commit()
 
-# CRITICAL FIX: Run this here so Gunicorn executes it on Render
+# Run immediately for Render/Gunicorn stability
 init_db()
 
 def generate_short_id(length=6):
@@ -46,17 +39,37 @@ def shorten_url():
     if not long_url.startswith(('http://', 'https://')):
         long_url = 'https://' + long_url
 
+    # Extract the optional custom alias from the incoming request data
+    custom_alias = data.get('alias', '').strip()
+
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        while True:
-            short_id = generate_short_id()
-            cursor.execute('SELECT 1 FROM urls WHERE short_id = ?', (short_id,))
-            if not cursor.fetchone():
-                break
+        
+        if custom_alias:
+            # Clean up user text input (convert spaces to dashes, strip dangerous slashes)
+            custom_alias = custom_alias.replace(" ", "-").replace("/", "")
+            
+            if not custom_alias:
+                return jsonify({"error": "Invalid custom alias provided."}), 400
+
+            # Check if this custom alias already exists in the local database
+            cursor.execute('SELECT 1 FROM urls WHERE short_id = ?', (custom_alias,))
+            if cursor.fetchone():
+                return jsonify({"error": f"The alias '{custom_alias}' is already taken!"}), 400
+            
+            short_id = custom_alias
+        else:
+            # Fall back to generating a standard random ID string
+            while True:
+                short_id = generate_short_id()
+                cursor.execute('SELECT 1 FROM urls WHERE short_id = ?', (short_id,))
+                if not cursor.fetchone():
+                    break
 
         cursor.execute('INSERT INTO urls (short_id, long_url) VALUES (?, ?)', (short_id, long_url))
         conn.commit()
 
+    # Automatically switches to your custom domain once connected to Render
     domain = request.host_url
     return jsonify({
         "long_url": long_url,
