@@ -1,10 +1,17 @@
 import string
 import random
 import sqlite3
+import os
 from flask import Flask, request, redirect, jsonify, render_template
 
 app = Flask(__name__)
-DB_FILE = 'urls.db'
+
+# Render wipes the server on restarts. Saving to /data keeps it permanent
+# if we attach a persistent disk. For local testing, it falls back to 'urls.db'
+if os.path.exists('/data'):
+    DB_FILE = '/data/urls.db'
+else:
+    DB_FILE = 'urls.db'
 
 def init_db():
     with sqlite3.connect(DB_FILE) as conn:
@@ -16,6 +23,9 @@ def init_db():
             )
         ''')
         conn.commit()
+
+# CRITICAL FIX: Run this here so Gunicorn executes it on Render
+init_db()
 
 def generate_short_id(length=6):
     characters = string.ascii_letters + string.digits
@@ -65,5 +75,4 @@ def redirect_to_url(short_id):
     return "URL not found", 404
 
 if __name__ == '__main__':
-    init_db()
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
