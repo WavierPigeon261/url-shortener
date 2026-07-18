@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local URL Shortener</title>
+    <title>URL Shortener & Alias Creator</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -24,7 +24,7 @@
             text-align: center;
         }
         h1 { color: #333; margin-bottom: 20px; font-size: 24px; }
-        input[type="url"] {
+        input[type="url"], input[type="text"] {
             width: 100%;
             padding: 12px;
             margin-bottom: 15px;
@@ -62,10 +62,11 @@
 <div class="container">
     <h1>Link Shortener</h1>
     <input type="url" id="longUrl" placeholder="Paste your long URL here..." required>
+    <input type="text" id="customAlias" placeholder="Custom alias (optional, e.g., 'portfolio')">
     <button onclick="shortenLink()">Shorten URL</button>
 
     <div class="result-box" id="resultBox">
-        <p style="margin: 0 0 5px 0; color: #666; font-size: 14px;">Your short link:</p>
+        <p style="margin: 0 0 5px 0; color: #666; font-size: 14px;">Your link:</p>
         <a id="shortLink" href="#" target="_blank"></a>
     </div>
 </div>
@@ -73,11 +74,12 @@
 <script>
     async function shortenLink() {
         const urlInput = document.getElementById('longUrl').value;
+        const aliasInput = document.getElementById('customAlias').value;
         const resultBox = document.getElementById('resultBox');
         const shortLink = document.getElementById('shortLink');
 
         if (!urlInput) {
-            alert('Please enter a valid URL.');
+            alert('Please enter a valid destination URL.');
             return;
         }
 
@@ -85,7 +87,10 @@
             const response = await fetch('/shorten', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: urlInput })
+                body: JSON.stringify({ 
+                    url: urlInput,
+                    alias: aliasInput 
+                })
             });
 
             const data = await response.json();
